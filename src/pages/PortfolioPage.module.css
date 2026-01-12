@@ -527,8 +527,17 @@ input:checked + .toggleSlider:before {
     padding: 8px;
   }
 
-  .tableHeaderRow {
-    display: none;
-    /* Hide headers on mobile since layout shifts */
-  }
+.tableHeaderRow {
+  display: none;
+  /* Hide headers on mobile since layout shifts */
+}
+}
+
+.emptyState {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-app);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
 }

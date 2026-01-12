@@ -19,7 +19,8 @@ export type WalletBalanceInput = {
 };
 
 export async function fetchWalletBalance({ chain }: WalletBalanceInput): Promise<string> {
-  return chain ? '1000.0' : '0';
+  // TODO: replace with wallet-connected balance lookup; default to zero to avoid mock data.
+  return chain ? '0' : '0';
 }
 
 export function getLoopingMetrics({

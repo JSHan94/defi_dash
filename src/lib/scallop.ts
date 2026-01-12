@@ -1,9 +1,7 @@
 import { Transaction } from "@mysten/sui/transactions";
 import { COIN_TYPES } from "./const";
 
-const DEFAULT_PACKAGE_ID =
-  process.env.SCALLOP_PACKAGE_ID ||
-  "0x6c976fd60e8e2d3fcf425c7b7ccbfdfd403d66a64bf7e59fbf148d4644723315"; // placeholder mainnet package; override via env
+const DEFAULT_PACKAGE_ID = process.env.SCALLOP_PACKAGE_ID;
 
 const COIN_NAME_TO_TYPE: Record<string, string> = {
   sui: COIN_TYPES.SUI,
@@ -21,8 +19,14 @@ const COIN_NAME_TO_TYPE: Record<string, string> = {
 
 export class ScallopFlashLoanClient {
   packageId: string;
+  static DEFAULT_FEE_BPS = 6n; // 0.06%
 
   constructor(packageId: string = DEFAULT_PACKAGE_ID) {
+    if (!packageId) {
+      throw new Error(
+        "SCALLOP_PACKAGE_ID is not set. Please set a valid Scallop package ID for mainnet."
+      );
+    }
     this.packageId = packageId;
   }
 
@@ -38,7 +42,7 @@ export class ScallopFlashLoanClient {
 
     const [loanCoin, receipt] = tx.moveCall({
       target: `${this.packageId}::flash_loan::borrow`,
-      arguments: [tx.object("0x6"), tx.pure(amount)],
+      arguments: [tx.object("0x6"), tx.pure.u64(amount)],
       typeArguments: [coinType],
     });
 
@@ -58,5 +62,10 @@ export class ScallopFlashLoanClient {
       arguments: [tx.object("0x6"), loanCoin, receipt.receipt],
       typeArguments: [coinType],
     });
+  }
+
+  static calculateFee(amount: bigint, feeBps: bigint = ScallopFlashLoanClient.DEFAULT_FEE_BPS) {
+    // ceil(amount * feeBps / 10_000)
+    return (amount * feeBps + 9999n) / 10000n;
   }
 }

@@ -3,6 +3,8 @@ import styles from './LoopingStrategy.module.css';
 import { formatPercent } from '../utils/format';
 import type { ChainId } from '../domain/types';
 import { fetchWalletBalance, getLoopingMetrics } from '../integrations/looping';
+import { SUPPORTED_TOKENS } from '../config/protocols';
+import { useCoinBalance } from '../hook/useNavi';
 
 interface LoopingStrategyProps {
   token: string;
@@ -10,6 +12,8 @@ interface LoopingStrategyProps {
   borrowApy: number;
   maxLtv: number;
   chain?: ChainId;
+  protocolId?: string;
+  onExecute?: (params: { amount: string; leverage: number }) => Promise<void>;
 }
 
 type TabId = 'deposit' | 'unwind' | 'adjust';
@@ -20,6 +24,8 @@ export function LoopingStrategy({
   borrowApy,
   maxLtv,
   chain,
+  protocolId,
+  onExecute,
 }: LoopingStrategyProps) {
   const depositAmountId = 'deposit-amount';
   const unwindAmountId = 'unwind-amount';
@@ -27,40 +33,31 @@ export function LoopingStrategy({
   const adjustSliderId = 'adjust-slider';
   const [activeTab, setActiveTab] = useState<TabId>('deposit');
   const [amount, setAmount] = useState<string>('1');
-  const [leverage, setLeverage] = useState<number>(1.0);
+  const [leverage, setLeverage] = useState<number>(1.2);
   const [walletBalance, setWalletBalance] = useState<string>('0');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const suiToken = SUPPORTED_TOKENS.SUI;
+  const { data: suiBalance } = useCoinBalance(suiToken.coinType, suiToken.decimals);
 
   useEffect(() => {
     let mounted = true;
-    fetchWalletBalance({ chain, token }).then((balance) => {
-      if (mounted) setWalletBalance(balance);
-    });
+    if (token === 'SUI' && suiBalance) {
+      if (mounted) setWalletBalance(suiBalance.balance);
+    } else {
+      fetchWalletBalance({ chain, token }).then((balance) => {
+        if (mounted) setWalletBalance(balance);
+      });
+    }
     return () => {
       mounted = false;
     };
-  }, [chain, token]);
+  }, [chain, token, suiBalance]);
 
-  /* ... inside LoopingStrategy ... */
-  const liquidationThreshold = 0.825; // Mock threshold (usually slightly higher than maxLtv)
+  const liquidationThreshold = Math.min(0.95, maxLtv + 0.05); // Slight buffer over max LTV
 
   const { maxLeverage, netApy, healthFactor, liquidationPrice } = useMemo(() => {
     const metrics = getLoopingMetrics({ supplyApy, borrowApy, maxLtv, leverage });
-
-    // Simple mock liquidation price calculation:
-    // Liq Price = (Borrowed / (Collateral * LiqThreshold)) * CurrentPrice
-    // Assuming CurrentPrice = 1 for now as we don't have it, so we return a ratio or just a mock value relative to 1.
-    // Actually, let's just make it relative to the entry price (1.0).
-    // If token price drops to X, collateral value drops.
-    // Borrowed Value = Collateral Value * LiqThreshold
-    // Borrowed = (Collateral * Price) * LiqThreshold
-    // Price = Borrowed / (Collateral * LiqThreshold)
-
-    // We need "Total Collateral" and "Total Borrow" based on leverage to do this right.
-    // leverage = Collateral / Equity.
-    // Let's assume Equity = 1 Unit.
-    // Collateral = leverage.
-    // Borrow = leverage - 1.
-    // Liq Price = (leverage - 1) / (leverage * liquidationThreshold)
 
     const borrowed = leverage - 1;
     const coll = leverage;
@@ -71,6 +68,21 @@ export function LoopingStrategy({
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLeverage(parseFloat(e.target.value));
+  };
+
+  const handleExecute = async () => {
+    if (!onExecute) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await onExecute({ amount, leverage });
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : typeof err === 'string' ? err : 'Execution failed';
+      setSubmitError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const setMaxBalance = () => {
@@ -93,7 +105,7 @@ export function LoopingStrategy({
           className={`${styles.tab} ${activeTab === 'deposit' ? styles.activeTab : ''}`}
           onClick={() => setActiveTab('deposit')}
         >
-          Deposit
+          Deposit {protocolId ? `(${protocolId})` : ''}
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'unwind' ? styles.activeTab : ''}`}
@@ -144,7 +156,7 @@ export function LoopingStrategy({
               <input
                 id={leverageSliderId}
                 type="range"
-                min="1"
+                min="1.05"
                 max={maxLeverage * 0.95}
                 step="0.1"
                 value={leverage}
@@ -213,6 +225,8 @@ export function LoopingStrategy({
         </div>
       )}
 
+      {submitError && <div className={styles.errorBox}>{submitError}</div>}
+
       <div className={styles.metrics}>
         <div className={styles.metric}>
           <span className={styles.metricLabel}>Net APY</span>
@@ -237,10 +251,16 @@ export function LoopingStrategy({
       <button
         type="button"
         className={`${styles.actionButton} ${isHighRisk ? styles.dangerButton : ''}`}
+        onClick={handleExecute}
+        disabled={isSubmitting}
       >
-        {activeTab === 'deposit' && 'Start Looping'}
-        {activeTab === 'unwind' && 'Unwind & Withdraw'}
-        {activeTab === 'adjust' && 'Update Position'}
+        {isSubmitting
+          ? 'Submitting...'
+          : activeTab === 'deposit'
+            ? 'Start Looping'
+            : activeTab === 'unwind'
+              ? 'Unwind & Withdraw'
+              : 'Update Position'}
       </button>
     </div>
   );

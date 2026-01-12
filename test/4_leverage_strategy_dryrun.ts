@@ -85,8 +85,8 @@ async function main() {
 
   // 2. Get config from .env.public
   const DEPOSIT_COIN_TYPE =
-    process.env.LEVERAGE_DEPOSIT_COIN_TYPE || COIN_TYPES.LBTC;
-  const DEPOSIT_AMOUNT = process.env.LEVERAGE_DEPOSIT_AMOUNT || "1101";
+    process.env.LEVERAGE_DEPOSIT_COIN_TYPE || COIN_TYPES.SUI;
+  const DEPOSIT_AMOUNT = process.env.LEVERAGE_DEPOSIT_AMOUNT || "1000000000"; // 1 SUI default
   const MULTIPLIER = parseFloat(process.env.LEVERAGE_MULTIPLIER || "1.5");
 
   const normalizedDepositCoin = normalizeCoinType(DEPOSIT_COIN_TYPE);
@@ -191,6 +191,7 @@ async function main() {
     console.log(`\n🔧 Building transaction...`);
     const tx = new Transaction();
     tx.setSender(userAddress);
+    tx.setGasBudget(200_000_000);
 
     // A. Flash loan USDC
     console.log(`  Step 1: Flash loan ${formatUnits(flashLoanUsdc, 6)} USDC`);
@@ -209,7 +210,7 @@ async function main() {
         coinIn: loanCoin,
         tx: tx,
       },
-      100
+      50
     );
 
     // C. Get or create obligation

@@ -104,6 +104,16 @@
   transition: border-color 0.2s;
 }
 
+.input::-webkit-inner-spin-button,
+.input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.input[type='number'] {
+  -moz-appearance: textfield;
+}
+
 .input:focus {
   border-color: var(--accent-primary);
 }
@@ -215,6 +225,16 @@
 
 .warningIcon {
   font-size: 16px;
+}
+
+.errorBox {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid rgba(255, 68, 68, 0.35);
+  color: #ff6666;
+  font-size: 13px;
 }
 
 .actionButton {

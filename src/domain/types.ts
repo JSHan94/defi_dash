@@ -1,6 +1,6 @@
 export type ArbitrageCategoryId = 'lst' | 'liquidity' | 'lending';
 
-export type ChainId = 'sui' | 'ethereum';
+export type ChainId = 'sui';
 
 export type SortKey = 'premium' | 'apy' | 'tvl' | 'updatedAt';
 

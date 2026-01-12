@@ -64,7 +64,12 @@ async function main() {
   console.log(`\n👤 Wallet: ${userAddress}`);
 
   const suiClient = new SuiClient({ url: SUI_FULLNODE_URL });
-  const flashLoanClient = new ScallopFlashLoanClient();
+  const scallopPackage = process.env.SCALLOP_PACKAGE_ID;
+  if (!scallopPackage) {
+    console.error("❌ Error: SCALLOP_PACKAGE_ID is not set in environment.");
+    return;
+  }
+  const flashLoanClient = new ScallopFlashLoanClient(scallopPackage);
   const metaAg = new MetaAg({
     partner:
       "0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf",
@@ -87,8 +92,8 @@ async function main() {
 
   // 2. Get config from .env.public
   const DEPOSIT_COIN_TYPE =
-    process.env.LEVERAGE_DEPOSIT_COIN_TYPE || COIN_TYPES.LBTC;
-  const DEPOSIT_AMOUNT = process.env.LEVERAGE_DEPOSIT_AMOUNT || "1101";
+    process.env.LEVERAGE_DEPOSIT_COIN_TYPE || COIN_TYPES.SUI;
+  const DEPOSIT_AMOUNT = process.env.LEVERAGE_DEPOSIT_AMOUNT || "1000000000"; // 1 SUI default
   const MULTIPLIER = parseFloat(process.env.LEVERAGE_MULTIPLIER || "1.5");
 
   const normalizedDepositCoin = normalizeCoinType(DEPOSIT_COIN_TYPE);
@@ -236,7 +241,7 @@ async function main() {
     console.log(`\n🔧 Building transaction...`);
     const tx = new Transaction();
     tx.setSender(userAddress);
-    tx.setGasBudget(100_000_000);
+    tx.setGasBudget(200_000_000);
 
     // A. Flash loan USDC from Scallop
     console.log(`  Step 1: Flash loan ${formatUnits(flashLoanUsdc, 6)} USDC`);
@@ -255,7 +260,7 @@ async function main() {
         coinIn: loanCoin,
         tx: tx,
       },
-      100
+      50
     );
 
     // C. Handle deposit coin based on type (SUI vs non-SUI)
