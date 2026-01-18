@@ -42,6 +42,26 @@ npm install
 - 기술 사양: [`docs/TECHSPEC.md`](docs/TECHSPEC.md)
 - 워크플로: [`docs/AGENTS.md`](docs/AGENTS.md)
 
+## Testing
+
+### Suilend Hook 테스트
+`devInspect`를 사용한 트랜잭션 시뮬레이션 테스트:
+
+```bash
+# 지갑 주소만 필요 (서명 불필요)
+npx tsx test/8_suilend_hook_test.ts 0xYourWalletAddress
+
+# 예시 (활성 obligation이 있는 주소)
+npx tsx test/8_suilend_hook_test.ts 0x72e8961badd0cff0efb38f7c29d13d0607c579d32f67da7159af25652704bd22
+```
+
+테스트 항목:
+- `usePools` — Reserve 데이터 조회
+- `useUserPositions` — Obligation deposit/borrow 조회
+- `useHealthFactor` — 헬스팩터 계산
+- `useCoinBalance` — 지갑 잔액
+- `useDeposit`, `useBorrow`, `useWithdraw`, `useRepay` — TX devInspect 시뮬레이션
+
 ## Notes
 
 - CSS Modules를 기본 사용 (`ComponentName.module.css`).
