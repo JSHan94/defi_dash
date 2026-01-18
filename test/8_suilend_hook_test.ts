@@ -215,12 +215,24 @@ async function testHealthFactor(
             return true;
         }
 
-        const depositValue = Number((ctx.obligation as any).depositedValueUsd ?? 0);
-        const borrowValue = Number((ctx.obligation as any).borrowedValueUsd ?? 0);
+        // Suilend uses Decimal objects with 18 decimal precision
+        const WAD = 10n ** 18n;
+
+        // Extract .value from Decimal objects
+        const depositedValueRaw = (ctx.obligation as any).depositedValueUsd?.value;
+        const borrowedValueRaw = (ctx.obligation as any).weightedBorrowedValueUsd?.value;
+        const allowedBorrowRaw = (ctx.obligation as any).allowedBorrowValueUsd?.value;
+
+        const depositValue = depositedValueRaw ? Number(BigInt(depositedValueRaw)) / Number(WAD) : 0;
+        const borrowValue = borrowedValueRaw ? Number(BigInt(borrowedValueRaw)) / Number(WAD) : 0;
+        const allowedBorrow = allowedBorrowRaw ? Number(BigInt(allowedBorrowRaw)) / Number(WAD) : 0;
+
+        // Health Factor = Deposited Value / Borrowed Value (or ∞ if no borrows)
         const healthFactor = borrowValue === 0 ? Infinity : depositValue / borrowValue;
 
         log("📊", `Deposit Value: $${depositValue.toFixed(2)}`);
         log("📊", `Borrow Value: $${borrowValue.toFixed(2)}`);
+        log("📊", `Available to Borrow: $${allowedBorrow.toFixed(2)}`);
         log("💚", `Health Factor: ${healthFactor === Infinity ? "∞" : healthFactor.toFixed(2)}`);
 
         log("✅", "useHealthFactor: SUCCESS");
