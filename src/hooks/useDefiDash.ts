@@ -149,6 +149,24 @@ export function useDefiDash() {
     [account, suiClient]
   );
 
+  const getMaxBorrowable = useCallback(
+    async (protocol: LendingProtocol, coinType: string) => {
+      const sdk = await getSDK();
+      if (!account?.address) return '0';
+      return sdk.getMaxBorrowable(protocol, coinType);
+    },
+    [account, getSDK]
+  );
+
+  const getMaxWithdrawable = useCallback(
+    async (protocol: LendingProtocol, coinType: string) => {
+      const sdk = await getSDK();
+      if (!account?.address) return '0';
+      return sdk.getMaxWithdrawable(protocol, coinType);
+    },
+    [account, getSDK]
+  );
+
   return {
     isConnected: !!account?.address,
     address: account?.address,
@@ -161,6 +179,8 @@ export function useDefiDash() {
     previewLeverage,
     getBalances,
     getTokenBalance,
+    getMaxBorrowable,
+    getMaxWithdrawable,
   };
 }
 
