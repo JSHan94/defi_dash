@@ -21,7 +21,7 @@
     "@suilend/sdk": "^1.1.99",
     "@tanstack/react-query": "^5.51.11",
     "axios": "^1.7.7",
-    "defi-dash-sdk": "^0.1.2",
+    "defi-dash-sdk": "^0.1.3-alpha.0",
     "process": "^0.11.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
