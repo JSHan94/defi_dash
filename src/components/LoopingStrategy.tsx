@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import styles from './LoopingStrategy.module.css';
-import { formatPercent } from '../utils/format';
+
 import type { ChainId } from '../domain/types';
-import { fetchWalletBalance, getLoopingMetrics } from '../integrations/looping';
 import { SUPPORTED_TOKENS } from '../config/protocols';
-import { useCoinBalance } from '../hook/useNavi';
+import { useDefiDash } from '../hooks/useDefiDash';
+import { useQuery } from '@tanstack/react-query';
+import { formatPercent, formatUnits } from '../utils/format';
 
 interface LoopingStrategyProps {
   token: string;
@@ -14,9 +15,38 @@ interface LoopingStrategyProps {
   chain?: ChainId;
   protocolId?: string;
   onExecute?: (params: { amount: string; leverage: number }) => Promise<void>;
+  onClose?: () => Promise<void>;
 }
 
 type TabId = 'deposit' | 'unwind' | 'adjust';
+
+// Helper math for UI metrics
+function getLoopingMetrics({
+  supplyApy,
+  borrowApy,
+  maxLtv,
+  leverage,
+}: {
+  supplyApy: number;
+  borrowApy: number;
+  maxLtv: number;
+  leverage: number;
+}) {
+  const maxLeverage = maxLtv >= 1 ? 10 : Math.floor((1 / (1 - maxLtv)) * 10) / 10;
+  const supplyIncome = supplyApy * leverage;
+  const borrowCost = borrowApy * (leverage - 1);
+  const netApy = supplyIncome - borrowCost;
+
+  let healthFactor = Infinity;
+  if (leverage !== 1) {
+    const currentLtv = (leverage - 1) / leverage;
+    if (currentLtv !== 0) {
+      healthFactor = maxLtv / currentLtv;
+    }
+  }
+
+  return { maxLeverage, netApy, healthFactor };
+}
 
 export function LoopingStrategy({
   token,
@@ -26,6 +56,7 @@ export function LoopingStrategy({
   chain,
   protocolId,
   onExecute,
+  onClose,
 }: LoopingStrategyProps) {
   const depositAmountId = 'deposit-amount';
   const unwindAmountId = 'unwind-amount';
@@ -37,22 +68,31 @@ export function LoopingStrategy({
   const [walletBalance, setWalletBalance] = useState<string>('0');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const suiToken = SUPPORTED_TOKENS.SUI;
-  const { data: suiBalance } = useCoinBalance(suiToken.coinType, suiToken.decimals);
+
+  const { getTokenBalance, isConnected } = useDefiDash();
+  const tokenConfig = SUPPORTED_TOKENS[token as keyof typeof SUPPORTED_TOKENS];
+
+  const balanceQuery = useQuery({
+    queryKey: ['balance', token, tokenConfig?.coinType],
+    queryFn: async () => {
+      console.log('[LoopingStrategy] Fetching balance for:', token);
+      console.log('[LoopingStrategy] Config:', tokenConfig);
+
+      if (tokenConfig) {
+        const raw = await getTokenBalance(tokenConfig.coinType);
+        console.log('[LoopingStrategy] Raw Balance:', raw);
+        return formatUnits(BigInt(raw), tokenConfig.decimals);
+      }
+      return '0';
+    },
+    enabled: isConnected && !!tokenConfig,
+  });
 
   useEffect(() => {
-    let mounted = true;
-    if (token === 'SUI' && suiBalance) {
-      if (mounted) setWalletBalance(suiBalance.balance);
-    } else {
-      fetchWalletBalance({ chain, token }).then((balance) => {
-        if (mounted) setWalletBalance(balance);
-      });
+    if (balanceQuery.data) {
+      setWalletBalance(balanceQuery.data);
     }
-    return () => {
-      mounted = false;
-    };
-  }, [chain, token, suiBalance]);
+  }, [balanceQuery.data]);
 
   const liquidationThreshold = Math.min(0.95, maxLtv + 0.05); // Slight buffer over max LTV
 
@@ -79,6 +119,21 @@ export function LoopingStrategy({
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : typeof err === 'string' ? err : 'Execution failed';
+      setSubmitError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = async () => {
+    if (!onClose) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await onClose();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : typeof err === 'string' ? err : 'Close failed';
       setSubmitError(msg);
     } finally {
       setIsSubmitting(false);
@@ -169,51 +224,19 @@ export function LoopingStrategy({
       )}
 
       {activeTab === 'unwind' && (
-        <div className={styles.section}>
-          <p className={styles.withdrawText}>
-            Unwind your position and withdraw assets. This will repay your borrowed amount using the
-            supplied collateral.
+        <div className={styles.section} style={{ textAlign: 'center', padding: '32px 0' }}>
+          <h3 style={{ marginBottom: '8px' }}>Unwind Position</h3>
+          <p style={{ color: 'var(--text-secondary)' }}>
+            This will repay all borrowed assets and withdraw your collateral.
           </p>
-          <div className={styles.inputGroup}>
-            <label className={styles.srOnly} htmlFor={unwindAmountId}>
-              Withdraw Amount
-            </label>
-            <input
-              id={unwindAmountId}
-              type="number"
-              className={styles.input}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Amount to withdraw"
-            />
-            <span className={styles.tokenSuffix}>{token}</span>
-          </div>
         </div>
       )}
 
       {activeTab === 'adjust' && (
-        <div className={styles.section}>
-          <div className={styles.sliderHeader}>
-            <label className={styles.label} htmlFor={adjustSliderId}>
-              Adjust Leverage
-            </label>
-            <span className={styles.leverageValue}>{leverage.toFixed(1)}x</span>
-          </div>
-          <div className={styles.sliderContainer}>
-            <input
-              id={adjustSliderId}
-              type="range"
-              min="1"
-              max={maxLeverage * 0.95}
-              step="0.1"
-              value={leverage}
-              onChange={handleSliderChange}
-              className={styles.slider}
-            />
-          </div>
-          <p className={styles.withdrawText} style={{ marginTop: '12px' }}>
-            Adjusting leverage will automatically supply or withdraw assets to reach the target
-            health factor.
+        <div className={styles.section} style={{ textAlign: 'center', padding: '32px 0' }}>
+          <h3 style={{ marginBottom: '8px' }}>Coming Soon</h3>
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Leverage adjustment is currently under development.
           </p>
         </div>
       )}
@@ -251,8 +274,10 @@ export function LoopingStrategy({
       <button
         type="button"
         className={`${styles.actionButton} ${isHighRisk ? styles.dangerButton : ''}`}
-        onClick={handleExecute}
-        disabled={isSubmitting}
+        onClick={
+          activeTab === 'deposit' ? handleExecute : activeTab === 'unwind' ? handleClose : undefined
+        }
+        disabled={isSubmitting || (activeTab !== 'deposit' && activeTab !== 'unwind')}
       >
         {isSubmitting
           ? 'Submitting...'
