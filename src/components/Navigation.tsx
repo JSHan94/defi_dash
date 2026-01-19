@@ -16,6 +16,12 @@ export function Navigation() {
       >
         PORTFOLIO
       </NavLink>
+      <NavLink
+        to="/dev"
+        className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}
+      >
+        DEV
+      </NavLink>
     </nav>
   );
 }

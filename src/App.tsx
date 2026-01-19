@@ -6,6 +6,7 @@ import { ChainSelect, type ChainOption } from './components/ChainSelect';
 import { Navigation } from './components/Navigation';
 import { StrategyPage } from './pages/StrategyPage';
 import { PortfolioPage } from './pages/PortfolioPage';
+import { DevPage } from './pages/DevPage';
 import { chainIcons } from './assets/chains';
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
           <Route path="/" element={<Navigate to="/strategy" replace />} />
           <Route path="/strategy" element={<StrategyPage />} />
           <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/dev" element={<DevPage />} />
         </Routes>
       </div>
     </BrowserRouter>
