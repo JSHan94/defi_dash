@@ -1,4 +1,10 @@
-export const formatNumber = (value: number): string => {
+export const formatNumber = (value: number, digits?: number): string => {
+  if (digits !== undefined) {
+    return value.toLocaleString(undefined, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+  }
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
@@ -6,6 +12,7 @@ export const formatNumber = (value: number): string => {
 };
 
 export const formatPercent = (value: number): string => `${(value * 100).toFixed(2)}%`;
+export const formatPercentValue = (value: number): string => `${value.toFixed(2)}%`;
 
 /**
  * Formats a raw token amount to a human-readable string.
